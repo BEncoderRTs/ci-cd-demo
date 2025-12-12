@@ -1,2 +1,11 @@
 git init
 
+git add  .
+
+git remote set-url origin https://github.com/BEncoderRTs/ci-cd-demo.git
+
+git branch -M main
+
+rnd_7ZfOmfueQyhL8bm60im0hwXHVrpR
+
+srv-d4tro2muk2gs73c5nrqg
