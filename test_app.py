@@ -7,4 +7,4 @@ def test_hello():
     response = client.get('/')
     # 断言返回值正确
     assert response.status_code == 200
-    assert response.data.decode('utf-8') == "Hello CI/CD!"
+    assert response.data.decode('utf-8') == "Hello CI/CD Success!"
