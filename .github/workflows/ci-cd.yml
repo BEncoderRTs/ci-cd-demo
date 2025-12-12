@@ -1,55 +1,72 @@
-# 工作流名称
-name: Python CI/CD Demo
+name: Python CI/CD with Docker
 
-# 触发条件：往 main 分支 push 代码时执行
+# 触发条件：main 分支 push 代码
 on:
   push:
     branches: [ main ]
 
-# 任务集合
+# 定义环境变量（全局可用）
+env:
+  # Docker 镜像名称（替换成你的 Docker Hub 用户名/仓库名）
+  DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/ci-cd-demo
+  # 镜像标签（用提交的 SHA 值，确保唯一）
+  DOCKER_IMAGE_TAG: ${{ github.sha }}
+
 jobs:
-  # 第一个任务：自动化测试（CI）
+  # 任务 1：自动化测试（CI）
   test:
-    # 运行环境：用 GitHub 提供的 Ubuntu 虚拟机
     runs-on: ubuntu-latest
     steps:
-      # 步骤1：拉取仓库代码
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      # 步骤2：设置 Python 环境（3.10版本）
-      - name: 设置Python
+      - name: 设置 Python 环境
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # 步骤3：安装依赖
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 步骤4：运行单元测试
-      - name: 运行测试
+      - name: 运行单元测试
         run: pytest test_app.py -v
 
-  # 第二个任务：自动部署（CD），依赖 test 任务通过才执行
-  deploy:
-    needs: test  # 测试通过才部署
+  # 任务 2：构建并推送 Docker 镜像（依赖 test 任务通过）
+  build-and-push-docker:
+    needs: test
     runs-on: ubuntu-latest
     steps:
-      # 步骤1：拉取代码
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      # 步骤2：部署到 Render（核心步骤）
-      - name: 部署到Render
-        # 使用 Render 官方的部署 Action
+      # 步骤 1：登录 Docker Hub（必备）
+      - name: 登录 Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      # 步骤 2：构建 Docker 镜像
+      - name: 构建 Docker 镜像
+        run: |
+          docker build -t $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG -t $DOCKER_IMAGE_NAME:latest .
+
+      # 步骤 3：推送镜像到 Docker Hub（推两个标签：SHA 唯一标签 + latest 最新标签）
+      - name: 推送 Docker 镜像
+        run: |
+          docker push $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
+          docker push $DOCKER_IMAGE_NAME:latest
+
+  # 任务 3：部署到 Render（依赖镜像推送完成）
+  deploy-to-render:
+    needs: build-and-push-docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: 触发 Render 部署
         uses: johnbeynon/render-deploy-action@v0.0.8
         with:
-          # Render 的 API 密钥（后面教你怎么获取）
           render_api_key: ${{ secrets.RENDER_API_KEY }}
-          # Render 上的服务 ID（后面教你怎么获取）
           service_id: ${{ secrets.RENDER_SERVICE_ID }}
-          # 部署后等待服务启动
           wait-for-success: true
