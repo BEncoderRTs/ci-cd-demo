@@ -1,0 +1,55 @@
+# 工作流名称
+name: Python CI/CD Demo
+
+# 触发条件：往 main 分支 push 代码时执行
+on:
+  push:
+    branches: [ main ]
+
+# 任务集合
+jobs:
+  # 第一个任务：自动化测试（CI）
+  test:
+    # 运行环境：用 GitHub 提供的 Ubuntu 虚拟机
+    runs-on: ubuntu-latest
+    steps:
+      # 步骤1：拉取仓库代码
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      # 步骤2：设置 Python 环境（3.10版本）
+      - name: 设置Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 步骤3：安装依赖
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 步骤4：运行单元测试
+      - name: 运行测试
+        run: pytest test_app.py -v
+
+  # 第二个任务：自动部署（CD），依赖 test 任务通过才执行
+  deploy:
+    needs: test  # 测试通过才部署
+    runs-on: ubuntu-latest
+    steps:
+      # 步骤1：拉取代码
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      # 步骤2：部署到 Render（核心步骤）
+      - name: 部署到Render
+        # 使用 Render 官方的部署 Action
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          # Render 的 API 密钥（后面教你怎么获取）
+          render_api_key: ${{ secrets.RENDER_API_KEY }}
+          # Render 上的服务 ID（后面教你怎么获取）
+          service_id: ${{ secrets.RENDER_SERVICE_ID }}
+          # 部署后等待服务启动
+          wait-for-success: true
